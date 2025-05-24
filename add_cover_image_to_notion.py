@@ -4,7 +4,7 @@ import requests
 import json
 import base64
 
-# 環境ファイル関連
+# Environment file related
 load_dotenv()
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
@@ -20,28 +20,28 @@ headers = {
 
 def fetch_notion_pages():
     """
-    Notion データベースからすべてのページを取得する
+    Fetch all pages from Notion database
     """
     url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
     all_items = []
     has_more = True
     start_cursor = None
 
-    # ペイロードの設定
+    # Payload configuration
     payload = {}
 
     while has_more:
         if start_cursor:
             payload["start_cursor"] = start_cursor
 
-        # データベースクエリを送信
+        # Send database query
         response = requests.post(url, headers=headers, json=payload)
         data = response.json()
 
-        # アイテムをリストに追加
+        # Add items to list
         all_items.extend(data["results"])
 
-        # ページネーションのためのカーソルを更新
+        # Update cursor for pagination
         has_more = data.get("has_more", False)
         start_cursor = data.get("next_cursor")
 
@@ -50,7 +50,7 @@ def fetch_notion_pages():
 
 def extract_track_id(item):
     """
-    NotionのページからSpotifyのトラックIDを抽出
+    Extract Spotify track ID from Notion page
     """
     try:
         url = item["properties"]["URL"]["url"]
@@ -63,9 +63,8 @@ def extract_track_id(item):
 
 def get_spotify_token(client_id, client_secret):
     """
-    Spotify API からアクセストークンを取得する
+    Get access token from Spotify API
     """
-
     url = "https://accounts.spotify.com/api/token"
     auth_str = f"{client_id}:{client_secret}"
     b64_auth_str = base64.b64encode(auth_str.encode()).decode()
@@ -84,9 +83,8 @@ def get_spotify_token(client_id, client_secret):
 
 def get_album_art(track_id, token):
     """
-    Spotify API からトラックのアルバムアートを取得する
+    Get track album art from Spotify API
     """
-
     url = f"https://api.spotify.com/v1/tracks/{track_id}"
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.get(url, headers=headers)
@@ -100,7 +98,7 @@ def main():
     try:
         items = fetch_notion_pages()
 
-        # itemsの中からカバー画像がないものを抽出
+        # Extract items without cover images from items
         items_without_cover = [item for item in items if not item.get("cover")]
 
         spotify_token = get_spotify_token(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)
@@ -111,11 +109,11 @@ def main():
             album_art_url = get_album_art(track_id, spotify_token)
 
             if album_art_url:
-                # カバー画像を変更するリクエストのボディ
+                # Request body to change cover image
                 update_data = {
                     "cover": {"type": "external", "external": {"url": album_art_url}}
                 }
-                # ページIDを使ってカバー画像を変更するリクエストを送信
+                # Send request to change cover image using page ID
                 update_url = f"https://api.notion.com/v1/pages/{page_id}"
                 update_response = requests.patch(
                     update_url, headers=headers, data=json.dumps(update_data)
